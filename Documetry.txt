@@ -18,3 +18,98 @@ FLEXORA
 
 
 
+
+
+
+
+day 2 26/08/26 FLEXORA 
+
+
+
+
+
+
+
+1. Cleaned and organized the project
+
+Inside src, we created a proper structure:
+
+pages → for website pages
+components → for reusable parts like Navbar and Footer
+styles → for CSS files
+2. Created the Home page
+
+We created:
+
+src/pages/Home.jsx
+
+This contains our main website content.
+
+3. Created the Hero section
+
+The first main section of FLEXORA:
+
+FLEXORA label
+Big heading: Smart prosthetic movement, made accessible.
+Small description
+Explore FLEXORA button
+View Project button
+Right-side FLEXORA area
+4. Created the Approach section
+
+Below the Hero section, we added:
+
+OUR APPROACH
+Intelligent. Accessible. Human-focused.
+Smart Control
+Accessible Design
+Human Focus
+5. Created the Navbar
+
+We created:
+
+src/components/Navbar.jsx
+
+It contains:
+
+FLEXORA | Home | Features | About | Contact
+
+Then we connected it to App.jsx, so it appears at the top of the website.
+
+6. Added CSS styling
+
+We used:
+
+global.css → overall website styling, navbar, approach section, etc.
+Home.css → styling specifically for the Home page
+
+This is why the website now has the dark theme, proper spacing, large heading, buttons, and layout.
+
+7. Connected everything in App.jsx
+
+Currently, App.jsx brings the main parts together:
+
+Navbar → Home
+
+So the flow is:
+
+React + Vite project
+        ↓
+Organized src folder
+        ↓
+Created Home page
+        ↓
+Created Hero section
+        ↓
+Created Approach section
+        ↓
+Created Navbar
+        ↓
+Added CSS styling
+        ↓
+Connected Navbar + Home in App.jsx
+8. Footer
+
+We also created a Footer.jsx, but we are not using it right now because we don't need copyright information yet.
+
+
