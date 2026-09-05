@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { getFingerStates } from "../utils/handLogic";
+import { getFingerStates, getGesture } from "../utils/handLogic";
 import VirtualHand from "./VirtualHand";
+import StatsPanel from "./StatsPanel";
+import GripPresets from "./GripPresets";
 
 export default function HandTracker() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [status, setStatus] = useState("Loading model...");
   const [fingers, setFingers] = useState(null);
+  const [gesture, setGesture] = useState("Unknown");
+  const [latency, setLatency] = useState(null);
 
   useEffect(() => {
     let handLandmarker;
@@ -47,8 +51,11 @@ export default function HandTracker() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      const now = performance.now();
-      const results = handLandmarker.detectForVideo(video, now);
+      const startTime = performance.now();
+      const results = handLandmarker.detectForVideo(video, startTime);
+      const endTime = performance.now();
+
+      setLatency(endTime - startTime);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -64,6 +71,7 @@ export default function HandTracker() {
           const fingerStates = getFingerStates(hand);
           if (fingerStates) {
             setFingers(fingerStates);
+            setGesture(getGesture(fingerStates));
           }
         }
       }
@@ -79,7 +87,7 @@ export default function HandTracker() {
   }, []);
 
   return (
-    <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
       <div
         style={{
           position: "relative",
@@ -165,6 +173,11 @@ export default function HandTracker() {
         }}
       >
         <VirtualHand fingers={fingers} />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <StatsPanel gesture={gesture} latency={latency} />
+        <GripPresets activeGesture={gesture} />
       </div>
     </div>
   );

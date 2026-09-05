@@ -41,3 +41,30 @@ export function getFingerStates(landmarks) {
     pinky: isBent(landmarks, 20, 18) ? "Bent" : "Straight",
   };
 }
+
+
+// Recognizes common hand gestures from finger states
+export function getGesture(fingerStates) {
+  if (!fingerStates) return "Unknown";
+
+  const { thumb, index, middle, ring, pinky } = fingerStates;
+  const allBent = [thumb, index, middle, ring, pinky].every((f) => f === "Bent");
+  const allStraight = [thumb, index, middle, ring, pinky].every((f) => f === "Straight");
+
+  if (allBent) return "Fist (Power Grip)";
+  if (allStraight) return "Open Hand";
+
+  if (index === "Straight" && middle === "Straight" && ring === "Bent" && pinky === "Bent") {
+    return "Peace Sign";
+  }
+
+  if (thumb === "Straight" && index === "Bent" && middle === "Bent" && ring === "Bent" && pinky === "Bent") {
+    return "Thumbs Up";
+  }
+
+  if (index === "Straight" && middle === "Bent" && ring === "Bent" && pinky === "Bent") {
+    return "Pointing";
+  }
+
+  return "Mixed Grip";
+}
