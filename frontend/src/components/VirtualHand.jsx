@@ -55,13 +55,16 @@ function Finger({ x, baseY, segLengths, width, bend, tilt = 0, id }) {
 }
 
 export default function VirtualHand({ fingers }) {
-  const state = fingers || {
-    thumb: "Straight",
-    index: "Straight",
-    middle: "Straight",
-    ring: "Straight",
-    pinky: "Straight",
-  };
+  if (!fingers) {
+    return (
+      <p style={{ color: "#A1A1AA", fontSize: 13, textAlign: "center" }}>
+        No hand detected yet
+      </p>
+    );
+  }
+  const state = fingers;
+
+  
 
   const isBent = (name) => state[name] === "Bent";
 

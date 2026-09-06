@@ -68,3 +68,37 @@ export function getGesture(fingerStates) {
 
   return "Mixed Grip";
 }
+
+
+
+
+
+
+
+
+// Converts finger states into a 5-bit binary string
+// Bit order: Thumb, Index, Middle, Ring, Pinky
+// Bent = 1, Straight = 0
+export function getBinaryCode(fingerStates) {
+  if (!fingerStates) return "00000";
+
+  const bit = (state) => (state === "Bent" ? "1" : "0");
+
+  return (
+    bit(fingerStates.thumb) +
+    bit(fingerStates.index) +
+    bit(fingerStates.middle) +
+    bit(fingerStates.ring) +
+    bit(fingerStates.pinky)
+  );
+}
+
+// Truth table mapping binary codes to gestures
+// (matches the same logic as getGesture, expressed as a lookup table)
+export const gestureTruthTable = [
+  { binary: "00000", gesture: "Open Hand" },
+  { binary: "11111", gesture: "Fist (Power Grip)" },
+  { binary: "00110", gesture: "Peace Sign" },
+  { binary: "01111", gesture: "Thumbs Up" },
+  { binary: "01111", gesture: "Pointing" },
+];

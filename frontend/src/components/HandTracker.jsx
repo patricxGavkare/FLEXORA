@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { HandLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import { getFingerStates, getGesture } from "../utils/handLogic";
 import VirtualHand from "./VirtualHand";
 import StatsPanel from "./StatsPanel";
 import GripPresets from "./GripPresets";
+import { getFingerStates, getGesture, getBinaryCode } from "../utils/handLogic";
+import BinaryPanel from "./BinaryPanel";
 
 export default function HandTracker() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const latencyHistoryRef = useRef([]);
   const [status, setStatus] = useState("Loading model...");
   const [fingers, setFingers] = useState(null);
   const [gesture, setGesture] = useState("Unknown");
   const [latency, setLatency] = useState(null);
+  const [avgLatency, setAvgLatency] = useState(null);
+  const [binaryCode, setBinaryCode] = useState("00000");
 
   useEffect(() => {
     let handLandmarker;
@@ -54,8 +58,22 @@ export default function HandTracker() {
       const startTime = performance.now();
       const results = handLandmarker.detectForVideo(video, startTime);
       const endTime = performance.now();
+      
+const currentLatency = endTime - startTime;
 
-      setLatency(endTime - startTime);
+setLatency(currentLatency);
+
+// keep a rolling window of the last 30 readings
+latencyHistoryRef.current.push(currentLatency);
+if (latencyHistoryRef.current.length > 30) {
+  latencyHistoryRef.current.shift();
+}
+const avg =
+  latencyHistoryRef.current.reduce((sum, val) => sum + val, 0) /
+  latencyHistoryRef.current.length;
+setAvgLatency(avg);
+
+
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -72,6 +90,7 @@ export default function HandTracker() {
           if (fingerStates) {
             setFingers(fingerStates);
             setGesture(getGesture(fingerStates));
+            setBinaryCode(getBinaryCode(fingerStates));
           }
         }
       }
@@ -176,9 +195,27 @@ export default function HandTracker() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <StatsPanel gesture={gesture} latency={latency} />
-        <GripPresets activeGesture={gesture} />
-      </div>
+  {fingers ? (
+    <>
+      <StatsPanel gesture={gesture} latency={latency} avgLatency={avgLatency} />
+      <BinaryPanel binaryCode={binaryCode} />
+      <GripPresets activeGesture={gesture} />
+    </>
+  ) : (
+    <div
+      style={{
+        background: "#11151c",
+        border: "1px solid #252A32",
+        borderRadius: 12,
+        padding: 20,
+        color: "#A1A1AA",
+        fontSize: 14,
+      }}
+    >
+      Waiting for hand detection...
+    </div>
+  )}
+</div>
     </div>
   );
 }
