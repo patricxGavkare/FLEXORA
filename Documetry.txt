@@ -17,99 +17,150 @@ FLEXORA
             └── global.css
 
 
-
-
-
-
-
 day 2 26/08/26 FLEXORA 
 
-
-
-
-
-
-
 1. Cleaned and organized the project
-
 Inside src, we created a proper structure:
-
 pages → for website pages
 components → for reusable parts like Navbar and Footer
 styles → for CSS files
+
 2. Created the Home page
-
-We created:
-
-src/pages/Home.jsx
-
-This contains our main website content.
+src/pages/Home.jsx contains our main website content.
 
 3. Created the Hero section
+Smart prosthetic movement, made accessible.
 
-The first main section of FLEXORA:
-
-FLEXORA label
-Big heading: Smart prosthetic movement, made accessible.
-Small description
-Explore FLEXORA button
-View Project button
-Right-side FLEXORA area
 4. Created the Approach section
-
-Below the Hero section, we added:
-
-OUR APPROACH
 Intelligent. Accessible. Human-focused.
-Smart Control
-Accessible Design
-Human Focus
+
 5. Created the Navbar
-
-We created:
-
-src/components/Navbar.jsx
-
-It contains:
-
 FLEXORA | Home | Features | About | Contact
 
-Then we connected it to App.jsx, so it appears at the top of the website.
-
 6. Added CSS styling
-
-We used:
-
-global.css → overall website styling, navbar, approach section, etc.
-Home.css → styling specifically for the Home page
-
-This is why the website now has the dark theme, proper spacing, large heading, buttons, and layout.
+global.css and Home.css for dark aesthetic.
 
 7. Connected everything in App.jsx
+Navbar → Home → Footer
 
-Currently, App.jsx brings the main parts together:
+-------------------------------------------------------------
+Phase 1: DEAM & Simulation Enhancements (FLEXORA)
 
-Navbar → Home
+1. MediaPipe Real-Time Computer Vision Pipeline:
+   - WebAssembly (WASM) + GPU-accelerated HandLandmarker model.
+   - Tracks 21 3D hand keypoints live through standard webcam.
 
-So the flow is:
+2. Continuous Proportional Flexion Kinematics:
+   - Replaced binary on/off snapping with scale-invariant continuous ratio (0.0 to 1.0).
+   - Bionic prosthetic joints now articulate continuously (0° to 42°) in real time.
 
-React + Vite project
-        ↓
-Organized src folder
-        ↓
-Created Home page
-        ↓
-Created Hero section
-        ↓
-Created Approach section
-        ↓
-Created Navbar
-        ↓
-Added CSS styling
-        ↓
-Connected Navbar + Home in App.jsx
-8. Footer
+3. Logic & Truth Table Collision Fixes:
+   - Pointing mapped to 10111 (Index straight, others bent).
+   - Thumbs Up mapped to 01111 (Thumb straight, others bent).
+   - Peace Sign mapped to 10011 (Index & Middle straight).
+   - Precision Pinch mapped to 00111.
+   - Resolved binary key collisions in handLogic.js.
 
-We also created a Footer.jsx, but we are not using it right now because we don't need copyright information yet.
+4. Embedded MCU & PWM Servo Actuator Controller (McuPanel.jsx):
+   - Designed for the DEAM (Digital Electronics and Microprocessor) course rubric.
+   - 5-Channel Servo PWM telemetry (1000 µs - 2000 µs at 50 Hz).
+   - 8-bit GPIO Data Register (PORTB) display with binary, hex, and decimal representations.
+   - Simulated UART serial telemetry string ($FLEX,...) for hardware link.
+   - Dynamic current draw estimation (mA) based on active motor load.
+
+5. Client-Side Machine Learning Studio (mlClassifier.js & AiTrainerPanel.jsx):
+   - 66-dimensional scale and translation-invariant normalized feature vectors.
+   - Few-shot custom grip training with on-device Euclidean centroids.
+   - Softmax temperature-scaled probabilistic confidence meter (0-100%).
+   - Model weights persistence (localStorage) and JSON export capability.
+
+-------------------------------------------------------------
+Phase 2: Next-Level Apple-Grade Frontend & DEAM Expansion (FLEXORA)
+
+6. Surface Electromyography (sEMG) Oscilloscope (SemgPanel.jsx):
+   - Simulates biological muscle electrical signals (microvolts µV) from forearm Flexor and Extensor muscle groups.
+   - Real-time 60 FPS dual-channel oscilloscope trace.
+   - Live DSP metrics: RMS (Root Mean Square in µV), MAV (Mean Absolute Value), and SNR (Signal-to-Noise Ratio in dB).
+   - Switchable digital signal filters: Raw Bipolar, Full-Wave Rectified, and Low-Pass Linear Envelope.
+
+7. Closed-Loop Tactile Force & Haptic Grasp Lab (HapticGraspPanel.jsx):
+   - Addresses the core challenge of bionic prosthetics: not crushing fragile payloads.
+   - 5 virtual test objects: Fresh Egg, Aluminum Soda Can, Paper Cup, Brass Key, and Ripe Strawberry.
+   - Force-Sensing Resistor (FSR) voltage divider calculation (0 to 5.0 V).
+   - 10-Bit ADC register simulation: 0x000 to 0x3FF (0 to 1023) mapped to ATmega328P ADC0..ADC4.
+   - Microcontroller firmware safety: "MCU Auto-Crush Protector" interrupt routine that detects when force reaches 88% of rupture limit and automatically clamps motor PWM.
+
+8. Kinematics Panel & Manual Slider Override Mode (KinematicsPanel.jsx):
+   - Displays continuous MCP (0°-90°), PIP (0°-100°), and DIP (0°-70°) joint articulation angles for all 5 digits.
+   - Features "Manual Hardware Override Mode" with 5 Apple-style sliders (0% to 100% flexion) so the prosthetic hand can be demonstrated and evaluated even without a camera!
+   - 8 one-click clinical grip presets (Power Fist, Open Hand, Precision Pinch, Pointing, Peace Sign, Thumbs Up, Lateral Key, Hook Grip).
+   - 5-bit control bus register display with decimal, hex, and active truth table decoder.
+
+9. Unified 5-Instrument HandTracker Workstation (HandTracker.jsx):
+   - Integrated 5-tab segmented control switcher:
+     Tab 1: Kinematics & Grips
+     Tab 2: DEAM Microcontroller Bus
+     Tab 3: AI Model Calibrator
+     Tab 4: sEMG Muscle Oscilloscope
+     Tab 5: Tactile & Haptic Lab
+   - Camera overlay controls: Toggle Wireframe Skeleton, Toggle Landmark Nodes, Freeze Stream.
+   - Seamless fallback and state propagation between manual sliders and live vision.
+
+10. Apple-Grade Website Redesign (Home.jsx & Home.css):
+    - Interactive 5-stage System Architecture flowchart with clickable nodes for deep circuit and mathematical theory inspection.
+    - Complete DEAM Curriculum Integration Matrix covering Unit 1 (Logic Gates & Number Systems), Unit 2 (Combinational/Sequential Circuits & Latching), and Unit 3 (Timers, Fast PWM, and SAR ADC).
+    - Quantitative Engineering Benchmarks Table comparing FLEXORA with Ottobock Michelangelo and Open Bionics Hero Arm.
+    - Interactive Technical FAQ Accordion explaining core engineering principles in simple English.
+    - Clean, authentic minimalist Apple aesthetic with SF Pro typography, frosted glass navbar, and zero clutter.
+
+-------------------------------------------------------------
+Phase 3: Production Polish, Precision Kinematics & DEAM Verification (FLEXORA)
+
+11. Preset Collision Fix & Automated Uniqueness Verification:
+    - Resolved collision between Thumbs Up (01111) and Hook Grip (now 11110).
+    - Every clinical grip preset now holds a strictly unique 5-bit digital address (00000, 00111, 01100, 01111, 10011, 10111, 11110, 11111).
+    - Added automated self-check validator validateGripPresets() in handLogic.js and verifyPresetUniqueness() in KinematicsPanel.jsx that runs at load time and throws if any collision exists.
+    - Calibrated Precision Pinch (thumb and index opposition flexed to touch) and Lateral Key Grip (thumb pad against radial side of flexed index).
+
+12. KaTeX Mathematical Notation Integration:
+    - Installed KaTeX and created reusable <MathView /> component supporting display block and inline math rendering.
+    - Rendered formal equations across Stage 01..05 pipeline drawers, Unit 1 (2^5 = 32), Unit 3 (ICR1 = 39999, N = 8), and Haptic Lab formulas (F_N, V_out, V_cc).
+
+13. Dynamic Webcam State Synchronization:
+    - Manual override chip in KinematicsPanel now reflects true webcam status:
+      • "Webcam Live • 60 FPS Tracking Stream" (when active)
+      • "Webcam Initializing..." (during setup)
+      • "Webcam Offline / Denied (Click for Manual)" (on error or block)
+      • "Webcam Bypassed • Direct Slider Control" (in manual mode).
+
+14. Architectural Layout & Typography Spacing:
+    - Increased vertical padding to 110px between all sections to ensure eyebrow badges never touch borders.
+    - Expanded Technical FAQ accordion to 100% full container width.
+    - Allowed clinical preset badges to wrap text cleanly without truncation.
+
+15. Live Measured Inference Latency Pipeline:
+    - Continuously calculates rolling 30-frame average of pure neural inference (performance.now()) in HandTracker.jsx.
+    - Emits measured latency to Home.jsx and renders dynamic indicator ("Live: XX ms inference latency") next to sub-15ms claims in the benchmark table and Unit 2 syllabus card.
+
+16. Academic Benchmark Footnotes & Hardware Emulation Badges:
+    - Added comprehensive footnotes citing official datasheets and clinical manuals (Ottobock Michelangelo, Open Bionics Hero Arm, MediaPipe GPU Delegate, ATmega328P datasheet).
+    - Added explicit architectural clarification note distinguishing physical hardware prosthetics from browser-native simulation.
+    - Added prominent "SIMULATED" badges to sEMG biopotential trace, 10-Bit ADC, and PID Crush Guard.
+
+17. Vector Virtual Hand Anatomical Overhaul (VirtualHand.jsx):
+    - Added high-contrast reinforced titanium outer palm contour and inner carbon faceplate.
+    - Modeled 4 mechanical knuckle sockets with locking pins anchoring medial fingers to palm top.
+    - Modeled anatomical thenar eminence saddle joint connecting thumb base securely to the palm.
+    - Finger kinematics now accurately flex in opposition for Precision Pinch and Lateral Key.
+
+18. Live 3:8 Line Decoder & Fast PWM Timing Diagram (McuPanel.jsx):
+    - Integrated standard 74LS138 3:8 decoder taking bus select lines [b2, b1, b0] with live active-low output indicators (Y0..Y7).
+    - Integrated 50 Hz Fast PWM timing diagram visualizing Timer 1 counter sawtooth (0 to ICR1 = 39999), output compare threshold (OCR1A), and microsecond pulse width.
+
+19. Navigation Polish, Background Blur & Developer Contact:
+    - Implemented navbar scroll-spy tracking current section in viewport.
+    - Added mobile slide-down navigation drawer.
+    - Added webcam background-blur filter toggle on video feed while keeping tracking canvas sharp.
+    - Redesigned Contact section with rich interactive cards for GitHub, LinkedIn, and institutional email.
 
 

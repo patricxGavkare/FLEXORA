@@ -24,6 +24,11 @@ import AiTrainerPanel from "./AiTrainerPanel";
 import SemgPanel from "./SemgPanel";
 import HapticGraspPanel from "./HapticGraspPanel";
 import { extractNormalizedFeatures, classifierModel } from "../utils/mlClassifier";
+import {
+  createStabilizerState,
+  resetStabilizerState,
+  updateGestureStabilizer,
+} from "../utils/gestureStabilizer";
 
 // Anatomical skeleton joint connections for drawing lines between the 21 keypoints
 const SKELETON_CONNECTIONS = [
@@ -44,6 +49,19 @@ export default function HandTracker({ onLatencyUpdate }) {
   const latencyHistoryRef = useRef([]);
   const frameCountRef = useRef(0);
 
+  // Gesture stabilization & predictive trajectory state ref (pure kinematic arithmetic across rolling window)
+  const stabilizerRef = useRef(createStabilizerState());
+
+  // Stabilizer reactive telemetry for UI display
+  const [stabilizerTelemetry, setStabilizerTelemetry] = useState({
+    stabilizedGesture: null,
+    stabilizedBinary: null,
+    isPredicted: false,
+    gestureConfidence: null,
+    stabilityScore: 0,
+    state: "idle", // "idle" | "moving" | "predicted" | "settled"
+  });
+
   // Camera stream track ref for pausing / stopping
   const mediaStreamRef = useRef(null);
 
@@ -62,6 +80,23 @@ export default function HandTracker({ onLatencyUpdate }) {
   const [showLandmarks, setShowLandmarks] = useState(true);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [isBgBlur, setIsBgBlur] = useState(false); // Webcam background blur toggle
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Settings gear dropdown
+  const settingsRef = useRef(null);
+
+  // Close settings dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    if (isSettingsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSettingsOpen]);
 
   // Active View Tab (5 Workstation Modes)
   // "kinematics" | "mcu" | "ai" | "semg" | "haptic"
@@ -94,10 +129,24 @@ export default function HandTracker({ onLatencyUpdate }) {
   const [currentFeatures, setCurrentFeatures] = useState(null);
   const [mlPrediction, setMlPrediction] = useState(null);
 
-  // Helper to immediately reset telemetry and hand tracking state
+  // Helper to immediately reset telemetry, stabilizer, and hand tracking state
   const clearHandDataAndLatency = useCallback(() => {
     latencyHistoryRef.current = [];
     frameCountRef.current = 0;
+    resetStabilizerState(stabilizerRef.current);
+    setStabilizerTelemetry((prev) => {
+      if (prev.state !== "idle" || prev.stabilizedGesture !== null) {
+        return {
+          stabilizedGesture: null,
+          stabilizedBinary: null,
+          isPredicted: false,
+          gestureConfidence: null,
+          stabilityScore: 0,
+          state: "idle",
+        };
+      }
+      return prev;
+    });
     setTelemetry((prev) => {
       if (prev.instantLatency !== null || prev.avgLatency !== null) {
         return { instantLatency: null, avgLatency: null };
@@ -381,11 +430,33 @@ export default function HandTracker({ onLatencyUpdate }) {
 
           const computedBinary = getBinaryCode(computedFingers);
 
-          // Update hand state
+          // Update raw hand state
           setHandData({
             fingers: computedFingers,
             gesture: computedGesture,
             binaryCode: computedBinary,
+          });
+
+          // 6. Temporal gesture stabilization & predictive trajectory state machine
+          const stabResult = updateGestureStabilizer(
+            stabilizerRef.current,
+            computedFingers.flexions,
+            computedGesture,
+            computedBinary
+          );
+
+          // Batch update stabilization state when telemetry values change
+          setStabilizerTelemetry((prev) => {
+            if (
+              prev.stabilizedGesture !== stabResult.stabilizedGesture ||
+              prev.isPredicted !== stabResult.isPredicted ||
+              prev.state !== stabResult.state ||
+              Math.abs(prev.stabilityScore - stabResult.stabilityScore) > 0.05 ||
+              prev.gestureConfidence !== stabResult.gestureConfidence
+            ) {
+              return stabResult;
+            }
+            return prev;
           });
         }
       }
@@ -443,20 +514,37 @@ export default function HandTracker({ onLatencyUpdate }) {
 
   const effectiveGesture = isManualMode
     ? getGesture(effectiveFingers)
-    : isLiveHandDataAvailable
-    ? handData.gesture
     : !streamActive
     ? "Camera inactive"
-    : "No hand detected";
+    : !handDetected
+    ? "No hand detected"
+    : stabilizerTelemetry.stabilizedGesture
+    ? (stabilizerTelemetry.isPredicted
+        ? `${stabilizerTelemetry.stabilizedGesture} (predicted)`
+        : stabilizerTelemetry.stabilizedGesture)
+    : handData.gesture
+    ? `${handData.gesture} (stabilizing...)`
+    : "Stabilizing intent...";
 
   const effectiveBinary = isManualMode
     ? getBinaryCode(effectiveFingers)
     : isLiveHandDataAvailable
-    ? handData.binaryCode
+    ? (stabilizerTelemetry.stabilizedBinary || handData.binaryCode || "00000")
     : "—————";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+      {/* Keyframe pulse animation for trajectory predicted intent */}
+      <style>{`
+        @keyframes flexora-predict-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.55; }
+        }
+        .flexora-predicting {
+          animation: flexora-predict-pulse 1.1s ease-in-out infinite;
+        }
+      `}</style>
+
       {/* REAL-TIME TELEMETRY GLANCE BAR (Requirement 2 & 3: Single Source of Truth) */}
       <div
         style={{
@@ -465,7 +553,7 @@ export default function HandTracker({ onLatencyUpdate }) {
           gap: 16,
         }}
       >
-        {/* Metric 1: Recognized Intent */}
+        {/* Metric 1: Recognized Intent & Temporal Stabilization */}
         <div
           style={{
             background: "rgba(18, 18, 21, 0.8)",
@@ -474,12 +562,77 @@ export default function HandTracker({ onLatencyUpdate }) {
             padding: "16px 20px",
             display: "flex",
             flexDirection: "column",
-            gap: 6,
+            gap: 8,
           }}
         >
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
-            Recognized Intent
+          {/* Header row: Title + Status Badge */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+              Recognized Intent
+            </div>
+            {isLiveHandDataAvailable && (
+              <div
+                className={stabilizerTelemetry.isPredicted ? "flexora-predicting" : ""}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  letterSpacing: "0.05em",
+                  padding: "2px 7px",
+                  borderRadius: 6,
+                  background:
+                    stabilizerTelemetry.state === "settled"
+                      ? "rgba(48, 209, 88, 0.15)"
+                      : stabilizerTelemetry.state === "predicted"
+                      ? "rgba(41, 151, 255, 0.18)"
+                      : "rgba(255, 255, 255, 0.06)",
+                  border: `1px solid ${
+                    stabilizerTelemetry.state === "settled"
+                      ? "rgba(48, 209, 88, 0.35)"
+                      : stabilizerTelemetry.state === "predicted"
+                      ? "rgba(41, 151, 255, 0.4)"
+                      : "rgba(255, 255, 255, 0.1)"
+                  }`,
+                  color:
+                    stabilizerTelemetry.state === "settled"
+                      ? "#30D158"
+                      : stabilizerTelemetry.state === "predicted"
+                      ? "#2997FF"
+                      : "var(--text-tertiary)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background:
+                      stabilizerTelemetry.state === "settled"
+                        ? "#30D158"
+                        : stabilizerTelemetry.state === "predicted"
+                        ? "#2997FF"
+                        : "#8E8E93",
+                    boxShadow:
+                      stabilizerTelemetry.state === "settled"
+                        ? "0 0 6px #30D158"
+                        : stabilizerTelemetry.state === "predicted"
+                        ? "0 0 8px #2997FF"
+                        : "none",
+                  }}
+                />
+                {stabilizerTelemetry.state === "settled"
+                  ? "SETTLED"
+                  : stabilizerTelemetry.state === "predicted"
+                  ? "PREDICTED"
+                  : "MOVING"}
+              </div>
+            )}
           </div>
+
+          {/* Gesture Name Display */}
           <div
             style={{
               fontSize: 20,
@@ -490,10 +643,92 @@ export default function HandTracker({ onLatencyUpdate }) {
               alignItems: "center",
             }}
           >
-            {effectiveGesture}
+            <span
+              style={{
+                fontStyle: stabilizerTelemetry.isPredicted ? "italic" : "normal",
+                color: stabilizerTelemetry.isPredicted ? "#64D2FF" : "inherit",
+                opacity: stabilizerTelemetry.isPredicted ? 0.92 : 1,
+                transition: "color 0.15s ease",
+              }}
+            >
+              {effectiveGesture}
+            </span>
           </div>
+
+          {/* Stability Bar & Telemetry (Requirement 7) */}
+          {isLiveHandDataAvailable && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {/* Thin horizontal stability bar */}
+              <div
+                style={{
+                  width: "100%",
+                  height: 4,
+                  borderRadius: 2,
+                  background: "rgba(255, 255, 255, 0.08)",
+                  overflow: "hidden",
+                }}
+                title={`Kinematic Stability: ${Math.round(stabilizerTelemetry.stabilityScore * 100)}%`}
+              >
+                <div
+                  className={stabilizerTelemetry.isPredicted ? "flexora-predicting" : ""}
+                  style={{
+                    height: "100%",
+                    width: `${Math.round(
+                      (stabilizerTelemetry.state === "settled"
+                        ? 1
+                        : stabilizerTelemetry.state === "predicted"
+                        ? Math.max(0.65, stabilizerTelemetry.stabilityScore)
+                        : stabilizerTelemetry.stabilityScore) * 100
+                    )}%`,
+                    background:
+                      stabilizerTelemetry.state === "settled"
+                        ? "#30D158"
+                        : stabilizerTelemetry.state === "predicted"
+                        ? "linear-gradient(90deg, #2997FF, #64D2FF)"
+                        : "rgba(255, 255, 255, 0.25)",
+                    boxShadow:
+                      stabilizerTelemetry.state === "settled"
+                        ? "0 0 6px rgba(48, 209, 88, 0.45)"
+                        : stabilizerTelemetry.state === "predicted"
+                        ? "0 0 8px rgba(41, 151, 255, 0.6)"
+                        : "none",
+                    transition: "width 0.15s ease, background 0.2s ease",
+                  }}
+                />
+              </div>
+
+              {/* Metric info row: Pose Match & Stability % */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: 10,
+                  fontFamily: "monospace",
+                  color: "var(--text-tertiary)",
+                }}
+              >
+                <span>Stability: {Math.round(stabilizerTelemetry.stabilityScore * 100)}%</span>
+                {stabilizerTelemetry.gestureConfidence !== null && (
+                  <span style={{ color: stabilizerTelemetry.isPredicted ? "#64D2FF" : "var(--text-secondary)" }}>
+                    Pose Match: {Math.round(stabilizerTelemetry.gestureConfidence * 100)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Subtitle / Mode Indicator */}
           <div style={{ fontSize: 11, color: isLiveHandDataAvailable ? "#30D158" : isManualMode ? "var(--accent)" : "var(--text-tertiary)" }}>
-            {isLiveHandDataAvailable ? "● Live Neural Inference" : isManualMode ? "● Manual Slider Override" : (!streamActive ? "● Camera Inactive" : "○ Awaiting Hand in Frame")}
+            {isLiveHandDataAvailable
+              ? stabilizerTelemetry.isPredicted
+                ? "◐ Trajectory Early-Commit (Kinematic Matching)"
+                : stabilizerTelemetry.state === "settled"
+                ? "● Kinematically Stabilized Pose"
+                : "○ Hand In Motion (Retaining Last Intent)"
+              : isManualMode
+              ? "● Manual Slider Override"
+              : (!streamActive ? "● Camera Inactive" : "○ Awaiting Hand in Frame")}
           </div>
         </div>
 
@@ -589,148 +824,250 @@ export default function HandTracker({ onLatencyUpdate }) {
             justifyContent: "center",
           }}
         >
-          {/* Top-Left Live Status Pill */}
+          {/* Top Camera Overlay Control Bar (Single Row, No Overlap) */}
           <div
             style={{
               position: "absolute",
               top: 14,
               left: 14,
-              zIndex: 3,
-              background: "rgba(0, 0, 0, 0.65)",
-              backdropFilter: "blur(10px)",
-              padding: "5px 12px",
-              borderRadius: 20,
-              border: "1px solid rgba(255, 255, 255, 0.1)",
+              right: 14,
+              zIndex: 10,
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
               gap: 8,
-              fontSize: 11,
-              fontWeight: 500,
-              color: "#F5F5F7",
+              pointerEvents: "none",
             }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: isManualMode
-                  ? "var(--accent)"
-                  : isLiveHandDataAvailable
-                  ? "#30D158"
-                  : !streamActive
-                  ? "#FF453A"
-                  : "#FF9F0A",
-              }}
-            />
-            {isManualMode
-              ? "Manual Override Enabled"
-              : isLiveHandDataAvailable
-              ? "Live Neural Tracking Active"
-              : !streamActive
-              ? (!isCameraPowerOn ? "Camera Powered Off" : cameraError ? "Camera Error / Denied" : isStreamPaused ? "Camera Frozen" : "Camera Inactive")
-              : "No Hand Detected"}
-          </div>
+            {/* Left Controls Group: Camera ON/OFF & Background Blur */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, pointerEvents: "auto" }}>
+              {/* Camera Power Toggle */}
+              <button
+                type="button"
+                onClick={toggleCameraPower}
+                title="Toggle Camera Feed (Click to power camera on/off)"
+                style={{
+                  background: isCameraPowerOn ? "rgba(48, 209, 88, 0.2)" : "rgba(255, 69, 58, 0.25)",
+                  border: `1px solid ${isCameraPowerOn ? "rgba(48, 209, 88, 0.5)" : "rgba(255, 69, 58, 0.5)"}`,
+                  color: isCameraPowerOn ? "#30D158" : "#FF453A",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "5px 10px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  backdropFilter: "blur(10px)",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: isCameraPowerOn ? "#30D158" : "#FF453A",
+                    boxShadow: isCameraPowerOn ? "0 0 6px #30D158" : "none",
+                  }}
+                />
+                {isCameraPowerOn ? "Camera: ON" : "Camera: OFF"}
+              </button>
 
-          {/* Top-Right Camera Overlay Toggle Controls */}
-          <div
-            style={{
-              position: "absolute",
-              top: 14,
-              right: 14,
-              zIndex: 3,
-              display: "flex",
-              gap: 6,
-            }}
-          >
-            {/* Camera Power Toggle (Manual Test) */}
-            <button
-              onClick={toggleCameraPower}
-              title="Toggle Camera Feed (Manual Test: Toggle 5x to verify instant blanking)"
+              {/* Blur Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsBgBlur(!isBgBlur)}
+                title="Toggle Webcam Background Blur"
+                style={{
+                  background: isBgBlur ? "rgba(41, 151, 255, 0.25)" : "rgba(0, 0, 0, 0.65)",
+                  border: `1px solid ${isBgBlur ? "rgba(41, 151, 255, 0.45)" : "rgba(255, 255, 255, 0.15)"}`,
+                  color: isBgBlur ? "var(--accent)" : "#F5F5F7",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  padding: "5px 10px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {isBgBlur ? "Blur: On" : "Blur: Off"}
+              </button>
+            </div>
+
+            {/* Right Controls Group: Freeze & Settings Dropdown */}
+            <div
+              ref={settingsRef}
               style={{
-                background: isCameraPowerOn ? "rgba(48, 209, 88, 0.2)" : "rgba(255, 69, 58, 0.25)",
-                border: `1px solid ${isCameraPowerOn ? "rgba(48, 209, 88, 0.5)" : "rgba(255, 69, 58, 0.5)"}`,
-                color: isCameraPowerOn ? "#30D158" : "#FF453A",
-                fontSize: 10,
-                fontWeight: 600,
-                padding: "4px 9px",
-                borderRadius: 6,
-                cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: 5,
+                gap: 6,
+                pointerEvents: "auto",
+                position: "relative",
               }}
             >
-              <span
+              {/* Freeze Button */}
+              <button
+                type="button"
+                onClick={() => setIsStreamPaused(!isStreamPaused)}
+                title="Freeze or Resume Camera Stream"
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: isCameraPowerOn ? "#30D158" : "#FF453A",
+                  background: isStreamPaused ? "rgba(255, 69, 58, 0.35)" : "rgba(0, 0, 0, 0.65)",
+                  border: `1px solid ${isStreamPaused ? "rgba(255, 69, 58, 0.6)" : "rgba(255, 255, 255, 0.15)"}`,
+                  color: isStreamPaused ? "#FF453A" : "#F5F5F7",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  padding: "5px 10px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
                 }}
-              />
-              {isCameraPowerOn ? "Camera: ON" : "Camera: OFF"}
-            </button>
-            <button
-              onClick={() => setShowSkeleton(!showSkeleton)}
-              title="Toggle Wireframe Skeleton"
-              style={{
-                background: showSkeleton ? "rgba(41, 151, 255, 0.3)" : "rgba(0, 0, 0, 0.65)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
-                fontSize: 10,
-                padding: "4px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              Wireframe
-            </button>
-            <button
-              onClick={() => setShowLandmarks(!showLandmarks)}
-              title="Toggle Joint Landmark Nodes"
-              style={{
-                background: showLandmarks ? "rgba(41, 151, 255, 0.3)" : "rgba(0, 0, 0, 0.65)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
-                fontSize: 10,
-                padding: "4px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              Nodes
-            </button>
-            <button
-              onClick={() => setIsStreamPaused(!isStreamPaused)}
-              title="Freeze Camera Stream"
-              style={{
-                background: isStreamPaused ? "rgba(255, 69, 58, 0.4)" : "rgba(0, 0, 0, 0.65)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
-                fontSize: 10,
-                padding: "4px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              {isStreamPaused ? "Resume" : "Freeze"}
-            </button>
-            <button
-              onClick={() => setIsBgBlur(!isBgBlur)}
-              title="Toggle Webcam Background Blur"
-              style={{
-                background: isBgBlur ? "rgba(41, 151, 255, 0.4)" : "rgba(0, 0, 0, 0.65)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#FFFFFF",
-                fontSize: 10,
-                padding: "4px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              {isBgBlur ? "Blur: On" : "Blur: Off"}
-            </button>
+              >
+                <span style={{ fontSize: 9 }}>{isStreamPaused ? "▶" : "⏸"}</span>
+                {isStreamPaused ? "Resume" : "Freeze"}
+              </button>
+
+              {/* Settings Dropdown Trigger (Gear Icon) */}
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                title="Overlay Settings (Wireframe & Nodes)"
+                aria-label="Overlay Settings"
+                style={{
+                  background: isSettingsOpen ? "rgba(41, 151, 255, 0.25)" : "rgba(0, 0, 0, 0.65)",
+                  border: `1px solid ${isSettingsOpen ? "var(--accent)" : "rgba(255, 255, 255, 0.15)"}`,
+                  color: isSettingsOpen ? "var(--accent)" : "#F5F5F7",
+                  fontSize: 12,
+                  padding: "6px 9px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+
+              {/* Collapsed Dropdown Menu */}
+              {isSettingsOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    right: 0,
+                    background: "rgba(18, 18, 21, 0.96)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    padding: 6,
+                    minWidth: 154,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.7)",
+                    zIndex: 20,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                      color: "var(--text-tertiary)",
+                      padding: "4px 8px 2px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Overlay Elements
+                  </div>
+
+                  {/* Wireframe Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowSkeleton(!showSkeleton)}
+                    style={{
+                      background: showSkeleton ? "rgba(41, 151, 255, 0.15)" : "transparent",
+                      border: `1px solid ${showSkeleton ? "rgba(41, 151, 255, 0.3)" : "transparent"}`,
+                      color: showSkeleton ? "#FFFFFF" : "var(--text-secondary)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <span>Wireframe</span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: showSkeleton ? "var(--accent)" : "var(--text-tertiary)",
+                      }}
+                    >
+                      {showSkeleton ? "ON" : "OFF"}
+                    </span>
+                  </button>
+
+                  {/* Nodes Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLandmarks(!showLandmarks)}
+                    style={{
+                      background: showLandmarks ? "rgba(41, 151, 255, 0.15)" : "transparent",
+                      border: `1px solid ${showLandmarks ? "rgba(41, 151, 255, 0.3)" : "transparent"}`,
+                      color: showLandmarks ? "#FFFFFF" : "var(--text-secondary)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <span>Nodes</span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: showLandmarks ? "var(--accent)" : "var(--text-tertiary)",
+                      }}
+                    >
+                      {showLandmarks ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mirrored Webcam Video */}

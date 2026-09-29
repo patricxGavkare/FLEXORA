@@ -6,6 +6,26 @@
 /* 96-120px vertical padding between sections */
 section {
   padding: 110px 0;
+  scroll-margin-top: 84px;
+}
+
+#home {
+  scroll-margin-top: 0;
+}
+
+#demo,
+.demo,
+#architecture,
+.architecture,
+#curriculum,
+.curriculum,
+#benchmarks,
+.benchmarks,
+#faq,
+.faq,
+#contact,
+.contact {
+  scroll-margin-top: 84px;
 }
 
 /* SECTION LABELS (Subtle uppercase electric blue caption) */
