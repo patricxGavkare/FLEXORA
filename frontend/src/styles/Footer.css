@@ -1,24 +1,72 @@
+/* ========================================================
+   Footer.css - Apple Minimalist Footer Styles
+   ======================================================== */
+
 .footer {
   border-top: 1px solid var(--border);
-  padding: 48px 0;
-  text-align: center;
+  padding: 64px 0 40px;
+  background: #000000;
+}
+
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--border);
+}
+
+.footer-brand {
+  max-width: 380px;
 }
 
 .footer-logo {
   font-weight: 700;
   font-size: 16px;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
   display: block;
   margin-bottom: 8px;
 }
 
 .footer-tagline {
   color: var(--text-secondary);
-  font-size: 14px;
-  margin-bottom: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.footer-nav {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-nav a {
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.footer-nav a:hover {
+  color: #FFFFFF;
+}
+
+.footer-bottom {
+  padding-top: 28px;
+  text-align: center;
 }
 
 .footer-copy {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 12px;
-  opacity: 0.6;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .footer-top {
+    flex-direction: column;
+    gap: 24px;
+  }
 }

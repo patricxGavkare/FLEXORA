@@ -1,47 +1,139 @@
+/* ========================================================
+   Navbar.css - Apple-Grade Frosted Glass Navigation Bar
+   Scroll-Spy Indicator & Responsive Mobile Menu
+   ======================================================== */
+
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 50;
-  background: rgba(13, 17, 23, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--border);
+  height: 52px;
+  display: flex;
+  align-items: center;
 }
 
 .navbar-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
+  width: 100%;
 }
 
 .navbar-logo {
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
+/* Desktop Links */
 .navbar-links {
   display: flex;
-  gap: 32px;
+  gap: 22px;
+  align-items: center;
 }
 
 .navbar-links a {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-secondary);
-  transition: color 0.2s ease;
+  transition: all 0.15s ease;
+  letter-spacing: -0.01em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  position: relative;
 }
 
 .navbar-links a:hover {
-  color: var(--text-main);
+  color: #FFFFFF;
 }
 
-@media (max-width: 640px) {
+/* Active Scroll-Spy State */
+.navbar-links a.active {
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+.navbar-links a.active::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* Mobile Hamburger Toggle */
+.navbar-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 32px;
+  height: 32px;
+}
+
+.navbar-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #FFFFFF;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+/* Mobile Dropdown Drawer */
+.navbar-mobile-menu {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: rgba(10, 10, 12, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px 20px;
+  gap: 12px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.8);
+}
+
+.navbar-mobile-menu a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.navbar-mobile-menu a:hover,
+.navbar-mobile-menu a.active {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 860px) {
   .navbar-links {
-    gap: 16px;
+    display: none;
   }
-  .navbar-links a {
-    font-size: 13px;
+  .navbar-toggle {
+    display: flex;
   }
 }
