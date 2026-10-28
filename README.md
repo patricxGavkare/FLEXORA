@@ -8,7 +8,7 @@ A webcam tracks your real hand. The movement is encoded into a 5-bit digital con
 
 ## Motivation
 
-Physical bionic prosthetic hardware is prohibitively expensive for classroom environments, and Digital Electronics and Microprocessor (DEAM) concepts are traditionally taught through abstract theory or isolated breadboard labs. To our knowledge, no reviewed prior work combines real-time consumer webcam tracking with an interactive, register-level digital logic and microcontroller simulation in a unified educational tool.
+Physical bionic prosthetic hardware is prohibitively expensive for classroom environments, and Digital Electronics and Microprocessor (DEAM) concepts are traditionally taught through abstract theory or isolated breadboard labs. In the 35 papers we surveyed, no prior work combines real-time consumer webcam tracking with an interactive, register-level digital logic and microcontroller simulation in a unified educational tool.
 
 ## How it works
 
@@ -43,7 +43,7 @@ This calibrator is the **only learned component** in FLEXORA. The temporal gestu
 - **5-bit control bus:** one bit per finger (1 = bent), shown live in binary, decimal and hex.
 - **8 clinical grip presets**, each with a unique code. `validateGripPresets()` checks for collisions at load time.
 - **Temporal gesture stabilizer** (`gestureStabilizer.js`): a rolling-window state machine that commits a gesture only after the pose settles, with early commit when finger velocities converge on a known preset. It is deterministic arithmetic with **no machine learning**.
-- **Honest telemetry:** latency, intent and bus values show "—" when the camera is off or no hand is detected. No cached or synthetic values.
+- **No synthetic data when idle:** latency, intent and bus values show "—" when the camera is off or no hand is detected. No cached or synthetic values.
 - **Live inference latency:** 30-frame rolling average of neural inference time (not end-to-end camera latency).
 - **Workstation instruments:**
   1. Kinematics and manual override
@@ -107,7 +107,7 @@ frontend/src/
 
 ## Known limitations
 
-- 5 bits encode only bent / straight per finger. Partial flexion (for example hook vs fist) cannot be distinguished by the bus word alone. The continuous angles carry that detail.
+- 5 bits encode only bent / straight per finger. Partial flexion (for example a loose curl vs a tight fist) cannot be distinguished by the bus word alone. The continuous angles carry that detail.
 - sEMG, ADC and PID force limiting are simulated, not measured.
 - Reported latency is neural inference time only.
 - No hardware integration yet (planned: Web Serial to Arduino).
