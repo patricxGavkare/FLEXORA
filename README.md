@@ -119,4 +119,4 @@ frontend/src/
 
 ## Author
 
-Pratik Gavkare, Second-Year B.Tech CSE (AI & ML), VIT Pune.
+Group 11 , Members : ( Pratik , Aniket , Krushna , Prajakta ) , Second-Year B.Tech CSE (AI & ML), VIT Pune.
